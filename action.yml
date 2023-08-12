@@ -1,13 +1,35 @@
-name: 'Wait'
-description: 'Wait a designated number of milliseconds'
+name: "Nullplatform Asset"
+description: "Github Action for asset management on Nullplatform"
 inputs:
-  milliseconds:  # id of input
-    description: 'number of milliseconds to wait'
+  action:
+    description: "The asset action controls what happens to the asset. Can be one of: create, update"
+    required: false
+  build-id:
+    description: "The build id where this asset belongs to"
     required: true
-    default: '1000'
+  type:
+    description: "asset type, could be docker-image, lambda, etc"
+    required: true
+  name:
+    description: "asset name, by default 'main'"
+    required: false
+    default: "main"
+  metadata:
+    description: "asset metadata, format is: <key>:<value>"
+    required: false
 outputs:
-  time: # output will be available to future steps
-    description: 'The current time after waiting'
+  id:
+    description: "The asset id"
+  build-id:
+    description: "The build id associated to the asset"
+  name:
+    description: "The asset name. Identifies an asset to deploy"
+  type:
+    description: "The asset type. Could be docker-image, lambda, etc."
+  targets:
+    description: "The asset targets. This is an array containing a collection of urls by provider where the asset must be uploaded"
+  metadata:
+    description: "The asset associated metadata. This is a key-value object"
 runs:
-  using: 'node16'
-  main: 'dist/index.js'
+  using: "node16"
+  main: "dist/index.js"
