@@ -3050,79 +3050,80 @@ const dotenv = __nccwpck_require__(437);
 const core = __nccwpck_require__(186);
 const HttpClient = __nccwpck_require__(349);
 const { isEmpty } = __nccwpck_require__(2);
-const { Variable, Input, Output } = __nccwpck_require__(456);
+const {
+  Input, Output, ActionType,
+} = __nccwpck_require__(456);
 
 dotenv.config();
 
 const inputToKey = (input) => (!isEmpty(input) ? input.replace(/-/g, '_') : null);
 
+const client = new HttpClient();
+
+const getAction = () => core.getInput(Input.ACTION);
+
 const setFailed = (error) => {
-    core.setFailed(error);
-    process.exit(1);
+  core.setFailed(error);
+  process.exit(1);
+};
+
+const createAsset = () => {
+  core.info('Validating inputs...');
+
+  const buildId = core.getInput(Input.BUILD_ID);
+  const name = core.getInput(Input.NAME);
+  const type = core.getInput(Input.TYPE);
+
+  if (isEmpty(buildId)) {
+    setFailed(`Input "${Input.BUILD_ID}" cannot be empty`);
+  }
+
+  if (isEmpty(type)) {
+    setFailed(`Input "${Input.TYPE}" cannot be empty`);
+  }
+
+  const body = {
+    [inputToKey(Input.BUILD_ID)]: parseInt(buildId, 10),
+    [inputToKey(Input.TYPE)]: type,
+    metadata: {},
+  };
+
+  if (!isEmpty(name)) {
+    body[inputToKey(Input.NAME)] = name;
+  }
+
+  return client.post(`build/${buildId}/asset`, body);
 };
 
 async function run() {
-    try {
-        const client = new HttpClient();
-
-        const accessKey = core.getInput(Input.ACCESS_KEY); // Not implemented
-        const secretAccessKey = core.getInput(Input.SECRET_ACCESS_KEY); // Not implemented
-        const token = core.getInput(Input.TOKEN); // Deprecated
-        const apiKey = core.getInput(Input.API_KEY);
-
-        core.info('Validating inputs...');
-
-        if (isEmpty(apiKey) && isEmpty(token) && (isEmpty(accessKey) || isEmpty(secretAccessKey))) {
-            setFailed(`Input "${Input.API_KEY}" cannot be empty`);
-        }
-        if (isEmpty(apiKey)) {
-            if (isEmpty(token) && (isEmpty(accessKey) || isEmpty(secretAccessKey))) {
-                setFailed(`Input "${Input.TOKEN}" cannot be empty`);
-            }
-
-            if (isEmpty(token)) {
-                if (isEmpty(accessKey) || isEmpty(secretAccessKey)) {
-                    setFailed(`Input "${Input.ACCESS_KEY}" and "${Input.SECRET_ACCESS_KEY}" cannot be empty`);
-                }
-            }
-        }
-
-        const method = () => {
-            if (isEmpty(apiKey)) {
-                if (isEmpty(token)) {
-                    return 'credentials';
-                }
-                return 'token';
-            }
-            return 'api-key';
-        };
-
-        core.info(`Logging into Nullplatform using ${method()}...`);
-
-        const body = {};
-        if (!isEmpty(apiKey)) {
-            body[inputToKey(Input.API_KEY)] = apiKey;
-        } else if (!isEmpty(token)) {
-            body[inputToKey(Input.TOKEN)] = token;
-        } else {
-            body[inputToKey(Input.ACCESS_KEY)] = accessKey;
-            body[inputToKey(Input.SECRET_ACCESS_KEY)] = secretAccessKey;
-        }
-
-        const { access_token: accessToken } = await client.post('login', body);
-
-        if (isEmpty(accessToken)) {
-            setFailed(`Output "${Output.ACCESS_TOKEN}" cannot be empty`);
-        }
-
-        core.info('Successfully logged in into Nullplatform');
-
-        core.setSecret(accessToken);
-        core.setOutput(Output.ACCESS_TOKEN, accessToken);
-        core.exportVariable(Variable.NULLPLATFORM_ACCESS_TOKEN, accessToken);
-    } catch (error) {
-        setFailed(`Login failed: ${error.message}`);
+  try {
+    const action = getAction();
+    let asset = null;
+    if (action === ActionType.CREATE) {
+      asset = await createAsset();
+      core.info(`Successfully created asset with id "${asset.id}"`);
+    } else if (action === ActionType.UPDATE) {
+      core.setFailed(`Unsupported action type "${action}"`);
+    } else {
+      core.setFailed(`Invalid action type "${action}"`);
     }
+    const {
+      id,
+      build_id: buildId,
+      name,
+      type,
+      targets,
+      metadata,
+    } = asset;
+    core.setOutput(Output.ID, id);
+    core.setOutput(Output.BUILD_ID, buildId);
+    core.setOutput(Output.NAME, name);
+    core.setOutput(Output.TYPE, type);
+    core.setOutput(Output.TARGETS, targets);
+    core.setOutput(Output.METADATA, metadata);
+  } catch (error) {
+    core.setFailed(`Asset action failed: ${error.message}`);
+  }
 }
 
 module.exports = run;
@@ -3135,12 +3136,17 @@ module.exports = run;
 
 const http = __nccwpck_require__(255);
 const config = __nccwpck_require__(570);
+const { isEmpty } = __nccwpck_require__(2);
+const { Variable } = __nccwpck_require__(456);
 
 class HttpClient {
   constructor() {
     this.client = new http.HttpClient();
     this.client.requestOptions = {
-      headers: { [http.Headers.ContentType]: 'application/json' },
+      headers: {
+        authorization: `Bearer ${process.env[Variable.NULLPLATFORM_ACCESS_TOKEN]}`,
+        [http.Headers.ContentType]: 'application/json',
+      },
     };
     this.baseUrl = config.baseUrl;
   }
@@ -3153,7 +3159,37 @@ class HttpClient {
     const result = await response.readBody();
     if (statusCode !== 200) {
       throw new Error(
-        `POST to ${path} failed: [${statusCode}] ${statusMessage} - ${result}`,
+        `POST to ${url} failed: [${statusCode}] ${statusMessage} - ${result}`,
+      );
+    }
+    return JSON.parse(result);
+  }
+
+  async patch(path, body) {
+    const url = `${this.baseUrl}/${path}`;
+    const data = JSON.stringify(body);
+    const response = await this.client.patch(url, data);
+    const { statusCode, statusMessage } = response.message;
+    const result = await response.readBody();
+    if (statusCode !== 200) {
+      throw new Error(
+        `PATCH to ${url} failed: [${statusCode}] ${statusMessage} - ${result}`,
+      );
+    }
+    return JSON.parse(result);
+  }
+
+  async get(path, query) {
+    let url = `${this.baseUrl}/${path}`;
+    if (!isEmpty(query)) {
+      url = `${url}?${query}`;
+    }
+    const response = await this.client.get(url);
+    const { statusCode, statusMessage } = response.message;
+    const result = await response.readBody();
+    if (statusCode !== 200) {
+      throw new Error(
+        `GET to ${url} failed: [${statusCode}] ${statusMessage} - ${result}`,
       );
     }
     return JSON.parse(result);
@@ -3180,18 +3216,30 @@ module.exports = config;
 /***/ 456:
 /***/ ((module) => {
 
+const ActionType = Object.freeze({
+  CREATE: 'create',
+  UPDATE: 'update',
+});
+
 const Input = Object.freeze({
-  TOKEN: 'token',
-  API_KEY: 'api-key',
-  ACCESS_KEY: 'access-key',
-  SECRET_ACCESS_KEY: 'secret-access-key',
+  ACTION: 'action',
+  BUILD_ID: 'build-id',
+  TYPE: 'type',
+  NAME: 'name',
+  METADATA: 'metadata',
 });
 
 const Output = Object.freeze({
-  ACCESS_TOKEN: 'access-token',
+  ID: 'id',
+  BUILD_ID: 'build-id',
+  NAME: 'name',
+  TYPE: 'type',
+  TARGETS: 'targets',
+  METADATA: 'metadata',
 });
 
 const Variable = Object.freeze({
+  GITHUB_TOKEN: 'GITHUB_TOKEN',
   NULLPLATFORM_ACCESS_TOKEN: 'NULLPLATFORM_ACCESS_TOKEN',
 });
 
@@ -3199,6 +3247,7 @@ module.exports = {
   Input,
   Output,
   Variable,
+  ActionType,
 };
 
 
