@@ -25,6 +25,7 @@ const createAsset = () => {
   const buildId = core.getInput(Input.BUILD_ID);
   const name = core.getInput(Input.NAME);
   const type = core.getInput(Input.TYPE);
+  const url = core.getInput(Input.URL);
 
   if (isEmpty(buildId)) {
     setFailed(`Input "${Input.BUILD_ID}" cannot be empty`);
@@ -34,11 +35,19 @@ const createAsset = () => {
     setFailed(`Input "${Input.TYPE}" cannot be empty`);
   }
 
+  if (!isEmpty(url) && !isEmpty(name)) {
+    setFailed(`Input "${Input.NAME}" cannot be together with input ${Input.URL}`);
+  }
+
   const body = {
     [inputToKey(Input.BUILD_ID)]: parseInt(buildId, 10),
     [inputToKey(Input.TYPE)]: type,
     metadata: {},
   };
+
+  if (!isEmpty(url)) {
+    body[inputToKey(Input.URL)] = url;
+  }
 
   if (!isEmpty(name)) {
     body[inputToKey(Input.NAME)] = name;

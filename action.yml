@@ -17,6 +17,9 @@ inputs:
   metadata:
     description: "asset metadata, format is: <key>:<value>"
     required: false
+  url:
+    description: "predefined asset URL. This is an advanced usage and is not recommended, use *type* and *name* instead"
+    required: false
 outputs:
   id:
     description: "The asset id"

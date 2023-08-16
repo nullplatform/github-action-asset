@@ -8,6 +8,7 @@ const Input = Object.freeze({
   BUILD_ID: 'build-id',
   TYPE: 'type',
   NAME: 'name',
+  URL: 'url',
   METADATA: 'metadata',
 });
 
