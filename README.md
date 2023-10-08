@@ -1,78 +1,128 @@
-# Nullplatform Asset GitHub Action
+<h2 align="center">
+    <a href="https://nullplatform.com" target="blank_">
+        <img height="100" alt="nullplatform" src="https://nullplatform.com/favicon/android-chrome-192x192.png" />
+    </a>
+    <br>
+    <br>
+    Nullplatform Asset GitHub Action
+    <br>
+</h2>
 
-<p align="center">
-  <a href="https://github.com/nullplatform/github-action-asset/actions"><img alt="javscript-action status" src="https://github.com/nullplatform/github-action-asset/workflows/units-test/badge.svg"></a>
-</p>
+## Overview
 
-You can use the GitHub Action to manage build assets on Nullplatform.
+The "Nullplatform Asset" GitHub Action enables asset management on nullplatform within your GitHub Actions workflows. You can create and manage various asset types, such as Docker images, Lambdas, and more, effortlessly.
 
-## Code
+## Table of Contents
 
-Install the dependencies
+- [Inputs](#inputs)
+- [Outputs](#outputs)
+- [Usage](#usage)
+- [License](#license)
 
-```bash
-npm install
-```
+## Inputs
 
-Run the tests :heavy_check_mark:
+### `action`
 
-```bash
-$ npm test
+- **Description**: The asset action controls what happens to the asset. Can be one of: `create`, `update`. Default `create`
+- **Required**: No
 
- PASS  ./index.test.js
-  ✓ throws invalid asset (3ms)
-  ✓ creates asset on nullplatform (504ms)
-  ✓ other test (95ms)
-...
-```
+### `build-id`
 
-## Change action.yml
+- **Description**: The build ID where this asset belongs to.
+- **Required**: Yes
 
-The action.yml defines the inputs and output for your action.
+### `type`
 
-Update the action.yml with your name, description, inputs and outputs for your action.
+- **Description**: Asset type, e.g., `docker-image`, `lambda`, etc.
+- **Required**: Yes
 
-See the [documentation](https://help.github.com/en/articles/metadata-syntax-for-github-actions)
+### `name`
 
-## Change the Code
+- **Description**: Asset name. By default, it's set to `main`.
+- **Required**: No
 
-Most toolkit and CI/CD operations involve async operations so the action is run in an async function.
+### `metadata`
 
-```javascript
-const core = require('@actions/core');
-...
+- **Description**: Asset metadata, in the format `<key>:<value>`.
+- **Required**: No
 
-async function run() {
-  try {
-      ...
-  }
-  catch (error) {
-    core.setFailed(error.message);
-  }
-}
+### `url`
 
-run()
-```
+- **Description**: Predefined asset URL. Advanced usage, not recommended. Use `type` and `name` instead.
+- **Required**: No
 
-See the [toolkit documentation](https://github.com/actions/toolkit/blob/master/README.md#packages) for the various packages.
+## Outputs
 
-## Package for distribution
+### `id`
 
-Update version in ``package.json`` file and then run:
+- **Description**: The asset ID.
 
-```bash
-npm run update:version
-```
+### `build-id`
+
+- **Description**: The build ID associated with the asset.
+
+### `name`
+
+- **Description**: The asset name, identifying the asset.
+
+### `type`
+
+- **Description**: The asset type, e.g., `docker-image`, `lambda`, etc.
+
+### `targets`
+
+- **Description**: The asset targets, an array containing URLs by provider where the asset must be uploaded.
+
+### `metadata`
+
+- **Description**: The asset-associated metadata, presented as a key-value object.
 
 ## Usage
 
-You can now consume the action by referencing the v1 branch
-
 ```yaml
-uses: nullplatform/github-action-asset@v1
-with:
-  name: ${{ secrets.NULLPLATFORM_API_KEY }}
-  type: docker-image
+name: Create Nullplatform Asset
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  create_asset:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Login to Nullplatform
+        id: login
+        uses: your-org/nullplatform-login-action@v1
+        with:
+          api-key: ${{ secrets.NULLPLATFORM_API_KEY }}
+
+      - name: Create Nullplatform Build
+        id: create-build
+        uses: your-org/nullplatform-build-action@v1
+        with:
+          action: create
+          application-id: your-app-id
+
+      - name: Create Nullplatform Asset
+        id: create-asset
+        uses: your-org/nullplatform-asset-action@v1
+        with:
+          action: create
+          build-id: ${{ steps.create-build.outputs.id }}
+          type: docker-image
+          name: my-docker-image
+
+      - name: Display Asset ID
+        run: echo "Asset ID: ${{ steps.create-asset.outputs.id }}"
 ```
 
-See the [actions tab](https://github.com/actions/javascript-action/actions) for runs of this action! :rocket:
+In this example, the GitHub Action creates a new asset with the name "my-docker-image".
+
+## License
+
+This GitHub Action is licensed under the [MIT License](LICENSE).
