@@ -97,20 +97,20 @@ jobs:
 
       - name: Login to Nullplatform
         id: login
-        uses: your-org/nullplatform-login-action@v1
+        uses: nullplatform/nullplatform-login-action@v1
         with:
           api-key: ${{ secrets.NULLPLATFORM_API_KEY }}
 
       - name: Create Nullplatform Build
         id: create-build
-        uses: your-org/nullplatform-build-action@v1
+        uses: nullplatform/nullplatform-build-action@v1
         with:
           action: create
           application-id: your-app-id
 
       - name: Create Nullplatform Asset
         id: create-asset
-        uses: your-org/nullplatform-asset-action@v1
+        uses: nullplatform/nullplatform-asset-action@v1
         with:
           action: create
           build-id: ${{ steps.create-build.outputs.id }}
