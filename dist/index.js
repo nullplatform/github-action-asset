@@ -3083,8 +3083,8 @@ const createAsset = () => {
     setFailed(`Input "${Input.TYPE}" cannot be empty`);
   }
 
-  if (!isEmpty(url) && !isEmpty(name)) {
-    setFailed(`Input "${Input.NAME}" cannot be together with input ${Input.URL}`);
+  if (isEmpty(url) && isEmpty(name)) {
+    setFailed(`Input "${Input.NAME}" and ${Input.URL} cannot be both empty`);
   }
 
   const body = {
